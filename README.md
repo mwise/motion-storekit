@@ -19,23 +19,60 @@ gem 'motion-storekit'
 ### MotionStoreKit::StoreController
 ```ruby
 # Create an instance of MotionStoreKit::StoreController
-# Pass In-App Purchase product IDs
-product_ids ["com.example.MyProduct1", "com.example.MyProduct2"]
-@store_controller = MotionStoreKit::StoreController.new(product_ids)
 
-# Optionally set a manifest for your store
+# Pass in a product manifest
 # The manifest should be an array of Hashes
-# Each element should have at least a product_id
+# Each element needs at least an 'id' key
 # The manifest determines the order in which your returns products
-@store_controller.manifest = [
-  { product_id: "com.example.MyProduct1", name: "My Product 1" },
-  { product_id: "com.example.MyProduct2", name: "My Product 2" }
+manifest = [
+  { id: "com.example.MyProduct1", name: "My Product 1" },
+  { id: "com.example.MyProduct2", name: "My Product 2" }
 ]
+@store_controller = MotionStoreKit::StoreController.new(manifest)
 
-@store_controller.fetch_product_info do
-  # do something with @store_controller.products here
-  # @store_controller.products will be an array of MotionStoreKit::Product instances
+# Add a product
+@store_controller.add_product(id: "com.example.MyProduct4", name: "My Product 4")
+
+# Add multiple products
+@store_controller.add_products([
+  { id: "com.example.MyProduct3", name: "My Product 3"},
+  { id: "com.example.MyProduct4", name: "My Product 4"}
+])
+
+# Reset the product manifest
+@store_controller.reset_products([
+  { id: "com.example.MyProduct3", name: "My Product 3" },
+  { id: "com.example.MyProduct4", name: "My Product 4" }
+])
+
+# Fetch product info from the App Store
+@store_controller.fetch do |products|
+  # products will be an array of MotionStoreKit::Product instances
 end
+
+# Alternatively, pass a block to StoreController.new, #add_product,
+# #add_products, or #reset_products # to fetch product information automatically
+@store_controller = MotionStoreKit::StoreController.new(manifest) do |products|
+  # products will be an array of MotionStoreKit::Product instances
+end
+
+manifest = [{ id: "com.example.MyProduct3", name: "My Product 3"}]
+@store_controller.add_products(manifest) do |products|
+  # products will include information about all products
+end
+
+@store_controller.add_product({ id: "com.example.MyProduct3" }) do |products|
+  # products will include information about all products
+end
+
+manifest = [
+  { id: "com.example.MyProduct3", name: "My Product 3" },
+  { id: "com.example.MyProduct4", name: "My Product 4" }
+]
+@store_controller.reset_products(manifest) do
+  # products will be an array of MotionStoreKit::Product instances
+end
+
 ```
 
 ### MotionStoreKit::Product
@@ -43,17 +80,16 @@ end
 ```ruby
 @store_controller = MotionStoreKit::StoreController.new
 
-product_id = "com.example.MyProduct3"
-@product = @store_controller.add_product(product_id)
+@product = @store_controller.add_product({ id: "com.example.MyProduct3" })
 
 # ask the App Store for product information
-@store_controller.fetch_product_info do
+@store_controller.fetch do
 
   # retrieve product information
   @product.title            # String (e.g. "My Product 3")
   @product.description      # String (e.g. "This is my third product!")
   @product.price            # Float (e.g. 1.99)
-  @product.product_id       # In-App Purchase Product ID (e.g. "com.example.MyProduct3"
+  @product.id               # In-App Purchase Product ID (e.g. "com.example.MyProduct3"
   @product.currency         # String (e.g. "USD")
   @product.formatted_price  # String (e.g. "$1.99")
 
@@ -134,7 +170,7 @@ Note: you *must* use the correct arguments for your handler proc or block
   * see "Downloadable Purchases" below
 * **download_paused**: `->(download){ }`
   * triggered when a download is paused
-* download_waiting: `->(download_waiting){ }`
+* **download_waiting**: `->(download_waiting){ }`
   * triggered when a download is waiting
 
 ### Downloadable Purchases
