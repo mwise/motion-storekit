@@ -11,9 +11,7 @@ module MotionStoreKit
                 :title
 
     def initialize(args = {}, store_controller)
-      unless args[:id]
-        raise ArgumentError, "MotionStorekit Warning: You must pass an id for each product. You cannot sell a product without passing it an id."
-      end
+      validate(args, store_controller)
 
       @id = args[:id]
 
@@ -53,6 +51,17 @@ module MotionStoreKit
         handlers.each do |handler|
           handler.call(*args)
         end
+      end
+    end
+
+    private
+    def validate(args = {}, store_controller = nil)
+      unless args[:id]
+        raise ArgumentError, "MotionStorekit Warning: You must pass an id for each product. You cannot sell a product without passing it an id."
+      end
+
+      unless store_controller && store_controller.is_a?(StoreController)
+        raise ArgumentError, "MotionStorekit Warning: You must pass a MotionStoreKit::StoreController instance."
       end
     end
 
