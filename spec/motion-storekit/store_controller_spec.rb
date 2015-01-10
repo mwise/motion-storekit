@@ -264,39 +264,37 @@ describe MotionStoreKit::StoreController do
       end
     end
 
-    # TODO: figure out how to test this
-    #describe "#close" do
-      #after do
-        #SKPaymentQueue.defaultQueue.reset(:removeTransactionObserver)
-      #end
+    describe "#close" do
+      after do
+        SKPaymentQueue.defaultQueue.reset(:removeTransactionObserver)
+      end
 
-      #it "removes the controller as a transaction observer from the payment queue" do
-        #SKPaymentQueue.defaultQueue.stub!(:removeTransactionObserver) do |thing|
-          #expect(thing).to be(@subject)
-        #end
+      it "removes the controller as a transaction observer from the payment queue" do
+        SKPaymentQueue.defaultQueue.stub!(:removeTransactionObserver) do |thing|
+          expect(thing).to be(@subject)
+        end
 
-        #@subject.close
-      #end
-    #end
+        @subject.close
+      end
+    end
 
-    # TODO: figure out how to test this
-    #describe "#open" do
-      #after do
-        #SKPaymentQueue.defaultQueue.reset(:removeTransactionObserver)
-        #SKPaymentQueue.defaultQueue.reset(:addTransactionObserver)
-      #end
+    describe "#open" do
+      after do
+        SKPaymentQueue.defaultQueue.reset(:removeTransactionObserver)
+        SKPaymentQueue.defaultQueue.reset(:addTransactionObserver)
+      end
 
-      #it "removes, then adds the controller as a transaction observer from the payment queue" do
-        #SKPaymentQueue.defaultQueue.stub!(:removeTransactionObserver) do |thing|
-          #expect(thing).to be(@subject)
-        #end
-        #SKPaymentQueue.defaultQueue.stub!(:addTransactionObserver) do |thing|
-          #expect(thing).to be(@subject)
-        #end
+      it "removes, then adds the controller as a transaction observer from the payment queue" do
+        SKPaymentQueue.defaultQueue.stub!(:removeTransactionObserver) do |thing|
+          expect(thing).to be(@subject)
+        end
+        SKPaymentQueue.defaultQueue.stub!(:addTransactionObserver) do |thing|
+          expect(thing).to be(@subject)
+        end
 
-        #@subject.open
-      #end
-    #end
+        @subject.open
+      end
+    end
 
   end # end instance methods
 
