@@ -24,10 +24,10 @@ module MotionStoreKit
       fetch(&block) if block
     end
 
-    def add_product(hash, &block)
-      return @products[hash[:id]] if @products[hash[:id]]
+    def add_product(manifest_entry, &block)
+      return @products[manifest_entry[:id]] if @products[manifest_entry[:id]]
 
-      @products[hash[:id]] = Product.new(hash, self)
+      @products[manifest_entry[:id]] = Product.new(manifest_entry, self)
 
       fetch(&block) if block
     end
