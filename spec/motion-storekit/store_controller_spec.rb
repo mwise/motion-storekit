@@ -296,6 +296,54 @@ describe MotionStoreKit::StoreController do
       end
     end
 
+    describe "#purchase" do
+      it "creates a new payment with the given product id" do
+        @product_id = "foo"
+        @payment = SKPayment.new
+
+        SKPayment.stub!(:paymentWithProductIdentifier, return: @payment) do |product_id|
+          expect(product_id).to eq(@product_id)
+        end
+
+        SKPaymentQueue.stub!(:addPayment) do |payment|
+          expect(payment).to be(@payment)
+        end
+
+        @subject.purchase(@product_id)
+      end
+    end
+
+    describe "#purchased?" do
+      before do
+        @product_id = "foo"
+        @storage = @subject.instance_variable_get(:@storage)
+      end
+
+      context "when the storage includes the given product id" do
+        before { @storage.stub!(:all, return: [@product_id]) }
+
+        it "is true" do
+          expect(@subject.purchased?(@product_id)).to be_true
+        end
+      end
+
+      context "when the storage doesn't include the given product id" do
+        before { @storage.stub!(:all, return: []) }
+
+        it "is false" do
+          expect(@subject.purchased?(@product_id)).to be_false
+        end
+      end
+    end
+
+    describe "#restore_purchases" do
+      it "restores purchases from the payment queue" do
+        SKPaymentQueue.defaultQueue.mock!(:restoreCompletedTransactions)
+
+        @subject.restore_purchases
+      end
+    end
+
   end # end instance methods
 
 end
