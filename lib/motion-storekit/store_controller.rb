@@ -2,39 +2,41 @@ module MotionStoreKit
 
   class StoreController
 
+    DEFAULTS = {
+      verbose: false
+    }
+
     attr_reader :manifest
-    attr_reader :purchases_directory
 
     def self.fetch_product_info(product_ids, &block)
       @fetcher = ProductInfoFetcher.fetch(product_ids, &block)
     end
 
-    def initialize(manifest = [], args = {}, &block)
-      @manifest = manifest
+    def initialize(manifest_entries = [], options = {}, &block)
+      @options = DEFAULTS.merge(options)
 
-      open
+      @manifest = manifest_entries
       @storage = LocalStorage.new
       @products = {}
-      @purchases_directory = args[:purchases_directory]
 
       add_products_from_manifest
 
-      @verbose = false
+      open
 
       fetch(&block) if block
     end
 
     def add_product(manifest_entry, &block)
-      return @products[manifest_entry[:id]] if @products[manifest_entry[:id]]
-
-      @products[manifest_entry[:id]] = Product.new(manifest_entry, self)
+      @manifest << manifest_entry unless manifest_entry_exists?(manifest_entry)
+      @products[manifest_entry[:id]] ||= Product.new(manifest_entry, self)
 
       fetch(&block) if block
+
+      return @products[manifest_entry[:id]]
     end
 
-    def add_products(manifest, &block)
-      @manifest += manifest
-      add_products_from_manifest
+    def add_products(manifest_entries, &block)
+      manifest_entries.each { |entry| add_product(entry) }
 
       fetch(&block) if block
     end
@@ -55,9 +57,10 @@ module MotionStoreKit
       end
     end
 
-    def manifest=(manifest)
-      @manifest = manifest
+    def reset_products(manifest_entries, &block)
+      @manifest = manifest_entries
       add_products_from_manifest
+      fetch(&block) if block
     end
 
     def products
@@ -145,8 +148,8 @@ module MotionStoreKit
         trigger_event(product_id, :download_failed, download)
       when SKDownloadStateFinished
         purchase_path = DownloadProcessor.process(download,
-                                                  verbose: @verbose,
-                                                  purchases_directory: @purchases_directory)
+                                                  verbose: @options[:verbose],
+                                                  purchases_directory: @options[:purchases_directory])
         trigger_event(product_id, :download_finished, download, purchase_path)
 
         complete_transaction(download.transaction)
@@ -250,7 +253,11 @@ module MotionStoreKit
     #end
 
     def log_message(message)
-      NSLog(message) if @verbose
+      NSLog(message) if @options[:verbose]
+    end
+
+    def manifest_entry_exists?(manifest_entry)
+      !@manifest.detect { |m| m[:id] == manifest_entry[:id] }.nil?
     end
 
     class LocalStorage
