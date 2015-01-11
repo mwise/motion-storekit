@@ -176,3 +176,37 @@ Note: you *must* use the correct arguments for your handler proc or block
 ### Downloadable Purchases
 
 TODO
+
+
+### MotionStoreKit::ProductInfoFetcher
+
+Asynchronously fetch product information from the App Store.
+
+Note: you must retain a reference to the fetcher instance to make sure it is not
+Garbage collected before the block is called.
+
+```ruby
+product_ids = %w[first_id second_id]
+
+# make sure to retain an instance variable for the fetcher!
+@fetcher = MotionStoreKit::ProductInfoFetcher.new(product_ids) do |product_info|
+
+  # product_info will be a Hash of the form:
+  # {
+  #   "first_id": {
+  #     id: "first_id",
+  #     title: "inapp_localized_title",
+  #     description: "inapp_localized_description",
+  #     price: "0.89",
+  #     currency: "EUR",
+  #     price_str: "\u20AC0.89",
+  #   },
+  #   # ...
+  # }
+end
+
+# Alternatively, use ProductInfoFetcher.fetch
+@fetcher = MotionStoreKit::ProductInfoFetcher.fetch(product_ids) do |product_info|
+  # do stuff...
+end
+```

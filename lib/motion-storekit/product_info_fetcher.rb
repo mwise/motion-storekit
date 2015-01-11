@@ -1,118 +1,96 @@
-=begin
-# Sample use:
-## Asynchronous, raw:
-inapps = %w[first second third]
-@x = MotionStoreKit::ProductInfoFetcher.new(inapps) do |pi|
-  p pi
-end
-
-## Asynchronous, wrapped in method call:
-MotionStoreKit::ProductInfoFetcher.fetch(inapps) do |pi|
-  p pi
-end
-
-## Synchronous:
-pi = MotionStoreKit::ProductInfoFetcher.fetch(inapps)
-p pi
-
-
-# All three calls return hash of the following form:
-# {
-#   "inapp_id": {
-#     id: "inapp_id",
-#     title: "inapp_localized_title",
-#     description: "inapp_localized_description",
-#     price: "0.89", # float
-#     currency: "EUR",
-#     price_str: "\u20AC0.89",
-#   },
-#   # ...
-# }
-=end
 module MotionStoreKit
-  class StoreController
 
-    class ProductInfoFetcher
-      @@mutex = Mutex.new
-      @@cache = {}
-      def initialize(*products, &b)
-        raise LocalJumpError, "block expected" if b.nil?
-        @callback = b
-        @products = products.flatten
+  class ProductInfoFetcher
 
-        # all cached? skip the call...
-        if (@@cache.keys & @products).sort == @products.sort
-          h = @products.inject({}) { |m, prod| m[prod] = @@cache[prod]; m }
-          @callback.call(h)
-        else
-          @sr = SKProductsRequest.alloc.initWithProductIdentifiers(@products)
-          @sr.delegate = self
-          @sr.start
-        end
+    class <<self
 
-        self
+      def fetch(*products, &block)
+        new(*products, &block)
       end
 
-      def productsRequest(req, didReceiveResponse: resp)
-        if resp.nil?
-          @callback.call(nil)
-        else
-          h = resp.products.inject({}) { |m, prod|
-            m.merge(sk_to_hash(prod))
-          }
-          @@mutex.synchronize { @@cache.merge!(h) }
-          @callback.call(h)
-        end
+      def cache
+        Dispatch.once { @cache ||= {} }
+        @cache
       end
 
-      private
-
-      def sk_to_hash(sk)
-        nf = NSNumberFormatter.alloc.init
-        nf.setFormatterBehavior(NSNumberFormatterBehavior10_4)
-        nf.setNumberStyle(NSNumberFormatterCurrencyStyle)
-        nf.setLocale(sk.priceLocale)
-        formatted_price = nf.stringFromNumber(sk.price)
-
-        {
-          sk.productIdentifier => {
-            title: sk.localizedTitle,
-            description: sk.localizedDescription,
-            price: sk.price,
-            currency: sk.priceLocale.objectForKey(NSLocaleCurrencyCode),
-            formatted_price: formatted_price
-          }
-        }
+      def clear_cache
+        queue.async { @cache = {} }
       end
 
-      class <<self
-        # make a sync call out of an async one
-        def call_synchronized(method, *args)
-          finished = false
-          result = nil
-          send(method, *args) do |res|
-            result = res
-            finished = true
-          end
-          sleep 0.1 until finished
-          result
-        end
-
-        def fetch(*products, &b)
-          products.flatten!
-          if b.nil?
-            call_synchronized(:fetch, *products)
-          else
-            new(*products, &b)
-          end
-        end
-
-        def clear_cache
-          @@mutex.synchronize { @@cache = {} }
-        end
+      def queue
+        Dispatch::Queue.new("motion-storekit")
       end
 
     end
 
+    def initialize(*product_ids, &block)
+      raise LocalJumpError, "block expected" if block.nil?
+      @callback = block
+      @product_ids = product_ids.flatten
+
+      if all_product_ids_cached?
+        @callback.call(cached_info_for_product_ids)
+      else
+        create_products_request
+      end
+
+      self
+    end
+
+    def productsRequest(req, didReceiveResponse: response)
+      if response.nil?
+        @callback.call(nil)
+      else
+        products_hash = response.products.inject({}) { |memo, sk_product|
+          memo.merge(sk_product_to_hash(sk_product))
+        }
+        self.class.queue.async { cache.merge!(products_hash) }
+        @callback.call(products_hash)
+      end
+    end
+
+    private
+
+    def all_product_ids_cached?
+      (cache.keys & @product_ids).sort == @product_ids.sort
+    end
+
+    def cache
+      self.class.cache
+    end
+
+    def cached_info_for_product_ids
+      @product_ids.inject({}) { |memo, id| memo[id] = cache[id]; memo }
+    end
+
+    def create_products_request
+      @products_request = SKProductsRequest.alloc
+        .initWithProductIdentifiers(@product_ids)
+      @products_request.delegate = self
+      @products_request.start
+    end
+
+    def formatted_price(sk_product)
+      formatter = NSNumberFormatter.alloc.init
+      formatter.setFormatterBehavior(NSNumberFormatterBehavior10_4)
+      formatter.setNumberStyle(NSNumberFormatterCurrencyStyle)
+      formatter.setLocale(sk_product.priceLocale)
+
+      formatter.stringFromNumber(sk_product.price)
+    end
+
+    def sk_product_to_hash(sk_product)
+      {
+        sk_product.productIdentifier => {
+          title: sk_product.localizedTitle,
+          description: sk_product.localizedDescription,
+          price: sk_product.price,
+          currency: sk_product.priceLocale.objectForKey(NSLocaleCurrencyCode),
+          formatted_price: formatted_price(sk_product)
+        }
+      }
+    end
+
   end
+
 end
